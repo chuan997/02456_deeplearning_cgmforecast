@@ -9,7 +9,7 @@ import torch
 from sklearn.preprocessing import StandardScaler
 from torch.autograd import Variable
 
-from config import code_path, data_path, figure_path, model_path
+from config import code_path, data_path, figure_path, model_path, result_path
 from src.data import DataframeDataLoader
 from src.evaluation import evaluateModel
 from src.load_data import dataLoader
@@ -146,6 +146,10 @@ evaluationConfiguration = {
 }
 # ---------------------------------------------------------------------
 
+scores = pd.DataFrame(columns=['RMSE', 'MARD', 'MAE',
+                               'A', 'B', 'C', 'D', 'E', 'precision', 'recall', 'F1', 'lag'])
+scores.index.name = '[training], test'
+
 evalObject = evaluateModel(data_obj, model)
 
 if evaluationConfiguration['distance']:
@@ -162,3 +166,11 @@ if evaluationConfiguration['clarke']:
 if evaluationConfiguration['parke']:
     parkes, parkes_prob = evalObject.apply_parkes_error_grid(
         'mg/dl', figure_path=model_figure_path)
+
+scores.loc[str([train_data, val_data, test_data])] = [distance['rmse'], distance['mard'], distance['mae'],
+                                                      parkes_prob['A'], parkes_prob['B'], parkes_prob['C'], parkes_prob['D'], parkes_prob['E'],
+                                                      hypo['precision'], hypo['recall'], hypo['F1'], lag]
+
+# Save results
+result_path.mkdir(exist_ok=True, parents=True)
+scores.to_csv(result_path / 'one_scores.csv')
