@@ -14,9 +14,11 @@ from src.data import DataframeDataLoader
 from src.evaluation import evaluateModel
 from src.load_data import dataLoader
 from src.models.hediaNetExample import DilatedNet
+from src.models.gluNet import GluNet
 from src.parameter_sets.par import *
 from src.tools import train_cgm
 
+import sys
 # %load_ext autoreload
 # %autoreload 2
 
@@ -79,8 +81,10 @@ config = {
 }
 
 
-model = DilatedNet(h1=config["h1"],
-                   h2=config["h2"])
+#model = DilatedNet(h1=config["h1"],
+#                   h2=config["h2"])
+
+model = GluNet()
 
 
 # Load training data
@@ -98,9 +102,14 @@ data = next(iter(train_loader))
 
 inputs, targets = data
 # It is important to permute the dimensions of the input!!
+# inputs shape: 2, 16, 4
+# batch_size, num_step_past, num_inputs (channels or dimensions)
 inputs = Variable(inputs.permute(0, 2, 1)).contiguous()
-
+# inputs shape: 2, 4, 16
 output = model(inputs)
+# print(output)
+# sys.exit(1)
+
 
 # %%
 # ---------------------------------------------------------------------
@@ -132,7 +141,8 @@ evaluationConfiguration = {
     'clarke': True,
     'lag': True,
     'plotLag': True,
-    'plotTimeseries': True
+    'plotTimeseries': True,
+    'parke': True
 }
 # ---------------------------------------------------------------------
 
@@ -148,4 +158,7 @@ if evaluationConfiguration['plotTimeseries']:
     evalObject.get_timeSeriesPlot(figure_path=model_figure_path)
 if evaluationConfiguration['clarke']:
     clarkes, clarkes_prob = evalObject.clarkesErrorGrid(
+        'mg/dl', figure_path=model_figure_path)
+if evaluationConfiguration['parke']:
+    parkes, parkes_prob = evalObject.apply_parkes_error_grid(
         'mg/dl', figure_path=model_figure_path)

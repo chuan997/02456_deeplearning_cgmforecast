@@ -23,7 +23,7 @@ from src.parameter_sets.evaluateAllPars import (GRACE_PERIOD, GRACE_PERIOD_FINAL
                                                 val_data_sequence)
 from src.tools import train_cgm
 
-scores = pd.DataFrame(columns=['RMSE', 'MARD', 'MAE',
+scores = pd.DataFrame(columns=['ModelID', 'RMSE', 'MARD', 'MAE',
                                'A', 'B', 'C', 'D', 'E', 'precision', 'recall', 'F1', 'lag'])
 scores.index.name = '[training], test'
 
@@ -136,7 +136,8 @@ for i, (train_data, val_data, test_data) in enumerate(zip(train_data_sequence, v
         'clarke': 1,
         'lag': 1,
         'plotLag': 1,
-        'plotTimeseries': 1
+        'plotTimeseries': 1,
+        'parke': 1
     }
     # ---------------------------------------------------------------------
 
@@ -152,7 +153,7 @@ for i, (train_data, val_data, test_data) in enumerate(zip(train_data_sequence, v
     if evaluationConfiguration['plotTimeseries']:
         evalObject.get_timeSeriesPlot(figure_path=model_figure_path)
     if evaluationConfiguration['clarke']:
-        clarkes, clarkes_prob = evalObject.apply_clarkes_error_grid(
+        clarkes, clarkes_prob = evalObject.clarkesErrorGrid(
             'mg/dl', figure_path=model_figure_path)
     if evaluationConfiguration['parke']:
         parkes, parkes_prob = evalObject.apply_parkes_error_grid(

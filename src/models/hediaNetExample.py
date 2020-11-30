@@ -46,20 +46,27 @@ class DilatedNet(nn.Module):
         """
 
         # First layer
+        #print('x:', x.shape)
         current_width = x.shape[2]
         pad = max(self.receptive_field - current_width, 0)
         input_pad = nn.functional.pad(x, [pad, 0], "constant", 0)
-
+        #print('input_pad:', input_pad.shape)
         x = self.relu(self.conv1(input_pad))
+        #print('x1:', x.shape)
         x = self.relu(self.conv2(x))
+        #print('x2:', x.shape)
         x = self.relu(self.conv3(x))
+        #print('x3:', x.shape)
         x = self.relu(self.conv4(x))
+        #print('x4:', x.shape)
 
         # No relu on the last layer
         x = self.conv5(x)
+        #print('x5:', x.shape)
 
         # Remove redundant dimensions
         out_final = x[:,:,-1]
+        #print('out_final:', out_final.shape)
 
 
         

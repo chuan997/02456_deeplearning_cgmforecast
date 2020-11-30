@@ -14,6 +14,9 @@ from torch.autograd import Variable
 from src.data import DataframeDataLoader
 from src.models.hediaNetExample import DilatedNet
 
+from src.models.gluNet import GluNet
+
+import time
 
 #%%
 def predict_cgm(data_obj, model: nn.Module) -> np.ndarray:
@@ -48,9 +51,9 @@ def train_cgm(config: dict, data_obj=None, max_epochs=10, n_epochs_stop=5, grace
 
     '''
     # Build network
-    model = DilatedNet(h1=config["h1"], 
-                       h2=config["h2"])
-
+    #model = DilatedNet(h1=config["h1"], 
+    #                    h2=config["h2"])
+    model = GluNet()
     # Move model between cpu and gpu
     device = "cpu"
     if torch.cuda.is_available():
@@ -114,7 +117,11 @@ def train_cgm(config: dict, data_obj=None, max_epochs=10, n_epochs_stop=5, grace
 
                     # forward + backward + optimize
                     outputs = model(inputs)
+                    #print(inputs.shape)
+                    #print('targets\t', targets)
+                    #print('outputs\t', outputs)
                     loss = criterion(outputs, targets.reshape(-1,1))
+                    #print('loss\t', loss)
                     loss.backward()
                     optimizer.step()
 
