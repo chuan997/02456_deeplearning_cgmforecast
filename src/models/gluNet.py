@@ -21,6 +21,11 @@ class CausalConv(nn.Module):
                  dilations=[1,2,4], 
                  h1=32, 
                  h2=64):
+        
+        """
+        :param num_input: input 
+        """
+        
     
         super(CausalConv, self).__init__()
         self.num_inputs = num_inputs

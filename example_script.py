@@ -19,6 +19,7 @@ from src.parameter_sets.par import *
 from src.tools import train_cgm
 
 import sys
+import pandas as pd
 # %load_ext autoreload
 # %autoreload 2
 
@@ -52,7 +53,7 @@ data_pars = {}
 data_pars['path'] = data_path
 data_pars['train_data'] = train_data
 data_pars['test_data'] = test_data
-data_pars['validation_data'] = test_data
+data_pars['validation_data'] = val_data
 
 data_pars['start_date_train'] = start_date_train
 data_pars['start_date_test'] = start_date_test
