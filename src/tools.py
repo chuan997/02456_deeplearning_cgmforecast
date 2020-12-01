@@ -14,7 +14,7 @@ from torch.autograd import Variable
 from src.data import DataframeDataLoader
 from src.models.hediaNetExample import DilatedNet
 
-from src.models.gluNet import GluNet
+from src.models.gluNet2 import GluNet
 
 import time
 

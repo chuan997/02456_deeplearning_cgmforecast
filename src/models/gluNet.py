@@ -31,7 +31,6 @@ class CausalConv(nn.Module):
 
         :return: shape (batch_size, h2, num_step_past)
         """
-        
     
         super(CausalConv, self).__init__()
         self.num_inputs = num_inputs
@@ -46,7 +45,7 @@ class CausalConv(nn.Module):
                                padding=(self.kernel_size-1)*self.dilations[0], 
                                dilation=self.dilations[0])
         
-        self.truncate1 = Truncate((self.kernel_size-1)*self.dilations[0])
+        #self.truncate1 = Truncate((self.kernel_size-1)*self.dilations[0])
         #self.bn1 = nn.BatchNorm1d(self.hidden_units[0])
         #self.dropout1 = nn.Dropout()
         
@@ -56,7 +55,7 @@ class CausalConv(nn.Module):
                                padding=(self.kernel_size-1)*self.dilations[1], 
                                dilation=self.dilations[1])
         
-        self.truncate2 = Truncate((self.kernel_size-1)*self.dilations[1])
+        #self.truncate2 = Truncate((self.kernel_size-1)*self.dilations[1])
         
         # self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
         #                        out_channels=self.hidden_units[2], 
@@ -89,7 +88,8 @@ class DilatedConv(nn.Module):
 
     def __init__(self, 
                  num_inputs=64, 
-                 dilations=[1,2,4]):
+                 dilations=[1,2,4],
+                 dropout=0.2):
                 # h1=32, 
                 # h2=16):
         
@@ -118,11 +118,11 @@ class DilatedConv(nn.Module):
         #self.bn1 = nn.BatchNorm1d(self.hidden_units[0])
         #self.dropout1 = nn.Dropout()
         
-        self.conv2 = nn.Conv1d(in_channels=num_inputs, 
-                               out_channels=num_inputs, 
-                               kernel_size=3,
-                               padding=self.dilations[1], 
-                               dilation=self.dilations[1])
+        # self.conv2 = nn.Conv1d(in_channels=num_inputs, 
+        #                        out_channels=num_inputs, 
+        #                        kernel_size=3,
+        #                        padding=self.dilations[1], 
+        #                        dilation=self.dilations[1])
         
         
         # self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
@@ -131,11 +131,13 @@ class DilatedConv(nn.Module):
         #                        dilation=self.dilations[2])
         
         self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
         self.net = nn.Sequential(self.conv1, 
-                                 self.relu, 
-                                 self.conv2, 
-                                 self.relu)
+                                 self.relu,
+                                 self.dropout) 
+                                # self.conv2, 
+                                # self.relu)
                                 # self.conv3)
 
     def forward(self, x):
@@ -147,45 +149,67 @@ class DilatedConv(nn.Module):
 
 class ResBlock(nn.Module):
 
-    def __init__(self, layers=5, num_inputs=64):
+    def __init__(self, layers=10, num_inputs=64, skip_channels=32):
 
         super(ResBlock, self).__init__()
 
         self.layers = layers
         self.num_inputs = num_inputs
+        self.skip_channels = skip_channels
 
         self.dilated = DilatedConv()
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
 
-        self.conv1 = nn.Conv1d(in_channels=num_inputs, 
-                               out_channels=num_inputs, 
+        self.conv1 = nn.Conv1d(in_channels=self.num_inputs, 
+                               out_channels=self.num_inputs, 
+                               kernel_size=1)
+        
+        self.conv2 = nn.Conv1d(in_channels=self.num_inputs, 
+                               out_channels=self.skip_channels, 
                                kernel_size=1)
         
     def forward(self, x):
         
+        skips = []
+
         for l in range(self.layers):
             
             output = self.dilated(x)
+
             filters = self.tanh(output)
             gates = self.sigmoid(output)
+            output = filters * gates
+            
+            residual = self.conv1(output)
+            skip = self.conv2(output)
+            #
+            # skip_out = self.skip_conv(output)
+            # res_out = self.residual_conv(output)
+            # res_out = res_out + inputs[:, :, -res_out.size(2):]
+            # res
+            #print(residual.shape)
+            #print(skip.shape)
+            x = x + residual[:, :, -residual.size(2):]
 
-            skip = self.conv1(filters * gates)
-
-            x = x + skip
-
-            if l == 0:
-                skips = skip
-            else:
-                skips += skip
+            skips.append(skip)
         
-        return skips
+        output = torch.cat(skips, dim=0).sum(dim=0)
+        
+        # for layer in self.main:
+        #     outputs,skip = layer(outputs)
+        #     skip_connections.append(skip)
+            
+        # outputs = sum([s[:,:,-outputs.size(2):] for s in skip_connections])
+        # outputs = self.post(outputs)
+        
+        return output
         
         
 
 class PostProcess(nn.Module):
 
-    def __init__(self, num_inputs=64, h=32):
+    def __init__(self, num_inputs=32, h=16):
         
         """
         :param num_inputs: channels of skip

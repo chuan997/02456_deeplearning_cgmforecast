@@ -14,7 +14,7 @@ from src.data import DataframeDataLoader
 from src.evaluation import evaluateModel
 from src.load_data import dataLoader
 from src.models.hediaNetExample import DilatedNet
-from src.models.gluNet import GluNet
+from src.models.gluNet2 import GluNet
 from src.parameter_sets.par import *
 from src.tools import train_cgm
 
