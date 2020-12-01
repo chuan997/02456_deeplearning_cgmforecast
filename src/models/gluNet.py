@@ -20,44 +20,51 @@ class CausalConv(nn.Module):
                  num_inputs=4, 
                  dilations=[1,2,4], 
                  h1=32, 
-                 h2=64):
+                 h2=64,
+                 kernel_size=2):
         
         """
-        :param num_input: input 
+        :param num_input: num of initial input channels (4)
+        :param dilations: 1, 2, 4, 8 ....
+        :param h1: hidden units or channels
+        :param h2: hidden units or channels
+
+        :return: shape (batch_size, h2, num_step_past)
         """
         
     
         super(CausalConv, self).__init__()
         self.num_inputs = num_inputs
-        self.hidden_units = [h1, h1, h2]
+        self.hidden_units = [h1, h2]
         self.dilations = dilations
+        self.kernel_size = kernel_size
 
         #padding=（kernel_size-1）*dilation
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
                                out_channels=self.hidden_units[0], 
-                               kernel_size=2, 
-                               padding=(2-1)*self.dilations[0], 
+                               kernel_size=self.kernel_size, 
+                               padding=(self.kernel_size-1)*self.dilations[0], 
                                dilation=self.dilations[0])
         
-        self.truncate1 = Truncate((2-1)*self.dilations[0])
+        self.truncate1 = Truncate((self.kernel_size-1)*self.dilations[0])
         #self.bn1 = nn.BatchNorm1d(self.hidden_units[0])
         #self.dropout1 = nn.Dropout()
         
         self.conv2 = nn.Conv1d(in_channels=self.hidden_units[0], 
                                out_channels=self.hidden_units[1], 
-                               kernel_size=2, 
-                               padding=(2-1)*self.dilations[1], 
+                               kernel_size=self.kernel_size, 
+                               padding=(self.kernel_size-1)*self.dilations[1], 
                                dilation=self.dilations[1])
         
-        self.truncate2 = Truncate((2-1)*self.dilations[1])
+        self.truncate2 = Truncate((self.kernel_size-1)*self.dilations[1])
         
-        self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
-                               out_channels=self.hidden_units[2], 
-                               kernel_size=2, 
-                               padding=(2-1)*self.dilations[2], 
-                               dilation=self.dilations[2])
+        # self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
+        #                        out_channels=self.hidden_units[2], 
+        #                        kernel_size=2, 
+        #                        padding=(2-1)*self.dilations[2], 
+        #                        dilation=self.dilations[2])
         
-        self.truncate3 = Truncate((2-1)*self.dilations[2])
+        # self.truncate3 = Truncate((2-1)*self.dilations[2])
         
         self.relu = nn.ReLU()
         
@@ -66,10 +73,10 @@ class CausalConv(nn.Module):
                                  self.truncate1,
                                  self.relu, 
                                  self.conv2, 
-                                 self.truncate2,
-                                 self.relu, 
-                                 self.conv3,
-                                 self.truncate3)
+                                 self.truncate2)
+                                #  self.relu, 
+                                #  self.conv3,
+                                #  self.truncate3)
         
     def forward(self, x):
 
@@ -82,42 +89,54 @@ class DilatedConv(nn.Module):
 
     def __init__(self, 
                  num_inputs=64, 
-                 dilations=[1,2,4], 
-                 h1=32, 
-                 h2=16):
+                 dilations=[1,2,4]):
+                # h1=32, 
+                # h2=16):
+        
+        """
+        :param num_inputs: channels of residual
+        :param dilations: 1, 2, 4, 8 ....
+        :param h1: hidden units or channels
+        :param h2: hidden units or channels
+
+        :return: shape (batch_size, h2, xx)
+        """
     
         super(DilatedConv, self).__init__()
         self.num_inputs = num_inputs
-        self.hidden_units = [h1, h2, h2]
+        #self.hidden_units = [h1, h2, h2]
         self.dilations = dilations
 
+        #o = [i + 2*p - k - (k-1)*(d-1)]/s + 1
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
-                               out_channels=self.hidden_units[0], 
-                               kernel_size=2,  
+                               out_channels=num_inputs, 
+                               kernel_size=3,
+                               padding=self.dilations[0], 
                                dilation=self.dilations[0])
         
         #self.truncate1 = Truncate((3-1)*self.dilations[0])
         #self.bn1 = nn.BatchNorm1d(self.hidden_units[0])
         #self.dropout1 = nn.Dropout()
         
-        self.conv2 = nn.Conv1d(in_channels=self.hidden_units[0], 
-                               out_channels=self.hidden_units[1], 
-                               kernel_size=2,  
+        self.conv2 = nn.Conv1d(in_channels=num_inputs, 
+                               out_channels=num_inputs, 
+                               kernel_size=3,
+                               padding=self.dilations[1], 
                                dilation=self.dilations[1])
         
         
-        self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
-                               out_channels=self.hidden_units[2], 
-                               kernel_size=2, 
-                               dilation=self.dilations[2])
+        # self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
+        #                        out_channels=self.hidden_units[2], 
+        #                        kernel_size=2, 
+        #                        dilation=self.dilations[2])
         
         self.relu = nn.ReLU()
 
         self.net = nn.Sequential(self.conv1, 
                                  self.relu, 
                                  self.conv2, 
-                                 self.relu, 
-                                 self.conv3)
+                                 self.relu)
+                                # self.conv3)
 
     def forward(self, x):
 
@@ -126,10 +145,54 @@ class DilatedConv(nn.Module):
         return output
 
 
+class ResBlock(nn.Module):
+
+    def __init__(self, layers=5, num_inputs=64):
+
+        super(ResBlock, self).__init__()
+
+        self.layers = layers
+        self.num_inputs = num_inputs
+
+        self.dilated = DilatedConv()
+        self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
+
+        self.conv1 = nn.Conv1d(in_channels=num_inputs, 
+                               out_channels=num_inputs, 
+                               kernel_size=1)
+        
+    def forward(self, x):
+        
+        for l in range(self.layers):
+            
+            output = self.dilated(x)
+            filters = self.tanh(output)
+            gates = self.sigmoid(output)
+
+            skip = self.conv1(filters * gates)
+
+            x = x + skip
+
+            if l == 0:
+                skips = skip
+            else:
+                skips += skip
+        
+        return skips
+        
+        
+
 class PostProcess(nn.Module):
 
     def __init__(self, num_inputs=64, h=32):
         
+        """
+        :param num_inputs: channels of skip
+        :param h: hidden units
+        
+        :return: (batch_size, 1)
+        """
         super(PostProcess, self).__init__()
 
         self.num_inputs = num_inputs
@@ -178,12 +241,7 @@ class GluNet(nn.Module):
         # in k layers
         self.dilated = DilatedConv()
 
-        self.tanh = nn.Tanh()
-        self.sigmoid = nn.Sigmoid()
-
-        self.conv1 = nn.Conv1d(in_channels=num_inputs, 
-                               out_channels=64, 
-                               kernel_size=1)
+        self.resblock = ResBlock()
         
         self.postprocess = PostProcess()
 
@@ -194,22 +252,23 @@ class GluNet(nn.Module):
         #print(x.shape)
         residual = self.causal(x)
         #print(residual.shape)
-        output = self.dilated(residual)
+        #output = self.dilated(residual)
+        skip = self.resblock(residual)
         #print(output.shape)
-        filters = self.tanh(output)
+        #filters = self.tanh(output)
         #print(filters.shape)
-        gates = self.sigmoid(output)
+        #gates = self.sigmoid(output)
         #print(gates.shape)
         
 
-        x = filters * gates
+        #x = filters * gates
         #print(x.shape)
-        skip = self.conv1(x)
+        #skip = self.conv1(x)
         #print(skip.shape)
-        x = self.postprocess(skip)
+        output = self.postprocess(skip)
         #print(x.shape)
 
-        return x
+        return output
 
         
 
