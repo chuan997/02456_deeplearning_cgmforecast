@@ -53,7 +53,10 @@ def train_cgm(config: dict, data_obj=None, max_epochs=10, n_epochs_stop=5, grace
     # Build network
     #model = DilatedNet(h1=config["h1"], 
     #                    h2=config["h2"])
-    model = GluNet()
+    model = GluNet(causal_channels1=config["causal_channels1"],
+                   causal_channels2=config["causal_channels2"],
+                   skip_channels=config["skip_channels"],
+                   post_channels=config["post_channels"])
     # Move model between cpu and gpu
     device = "cpu"
     if torch.cuda.is_available():

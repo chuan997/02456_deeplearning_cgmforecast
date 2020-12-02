@@ -18,6 +18,7 @@ from config import code_path, data_path
 from src.data import DataframeDataLoader
 from src.load_data import dataLoader
 from src.models.hediaNetExample import DilatedNet
+from src.models.gluNet2 import GluNet
 from src.tools import train_cgm
 
 pass
@@ -67,9 +68,13 @@ def searchBestHypers(num_samples=10, max_num_epochs=15, n_epochs_stop=2, grace_p
     config_schedule = {
         "batch_size": tune.choice([4, 8, 16, 32]),
         "lr": tune.loguniform(1e-4, 1e-1),
-        "h1": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
-        "h2": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
+    #    "h1": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
+    #    "h2": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
         "wd": tune.loguniform(1e-4, 1e-1),
+        "causal_channels1": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
+        "causal_channels2": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
+        "skip_channels": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
+        "post_channels": tune.sample_from(lambda: 2 ** np.random.randint(3, 8)),
     }
 
     scheduler = ASHAScheduler(
@@ -87,9 +92,13 @@ def searchBestHypers(num_samples=10, max_num_epochs=15, n_epochs_stop=2, grace_p
         hyperparam_mutations={
             "batch_size": [4, 8, 16, 32, 64],
             "lr": tune.loguniform(1e-4, 1e-1),
-            "h1": [8, 16, 32, 64, 128],
-            "h2": [8, 16, 32, 64, 128],
+        #    "h1": [8, 16, 32, 64, 128],
+        #    "h2": [8, 16, 32, 64, 128],
             "wd": tune.loguniform(1e-4, 1e-1),
+            "causal_channels1": [8, 16, 32, 64, 128],
+            "causal_channels2": [8, 16, 32, 64, 128],
+            "skip_channels": [8, 16, 32, 64, 128],
+            "post_channels": [8, 16, 32, 64, 128]           
         })
 
     reporter = CLIReporter(
@@ -110,8 +119,15 @@ def searchBestHypers(num_samples=10, max_num_epochs=15, n_epochs_stop=2, grace_p
         best_trial.last_result["loss"]))
 
     # Build best network
-    best_trained_model = DilatedNet(h1=best_trial.config["h1"],
-                                    h2=best_trial.config["h2"])
+    #best_trained_model = DilatedNet(h1=best_trial.config["h1"],
+    #                               h2=best_trial.config["h2"])
+    
+    best_trained_model = GluNet(causal_channels1=best_trial.config["causal_channels1"],
+                                causal_channels2=best_trial.config["causal_channels2"],
+                                skip_channels=best_trial.config["skip_channels"],
+                                post_channels=best_trial.config["post_channels"])
+    
+
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"

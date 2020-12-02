@@ -16,6 +16,7 @@ from optimizeHypers import searchBestHypers
 from src.evaluation import evaluateModel
 from src.load_data import dataLoader
 from src.models.hediaNetExample import DilatedNet
+from src.models.gluNet2 import GluNet
 from src.parameter_sets.evaluateAllPars import (GRACE_PERIOD, GRACE_PERIOD_FINAL, MAX_NUM_EPOCHS,
                                                 MAX_NUM_EPOCHS_FINAL, N_EPOCHS_STOP,
                                                 N_EPOCHS_STOP_FINAL, NUM_SAMPLES, dates, features,
@@ -93,8 +94,13 @@ for i, (train_data, val_data, test_data) in enumerate(zip(train_data_sequence, v
     with open(par_file) as json_file:
         optHyps = json.load(open(par_file))
 
-    model = DilatedNet(h1=optHyps["h1"],
-                       h2=optHyps["h2"])
+    #model = DilatedNet(h1=optHyps["h1"],
+    #                   h2=optHyps["h2"])
+    
+    model = GluNet(causal_channels1=optHyps['causal_channels1'],
+                   causal_channels2=optHyps['causal_channels2'],
+                   skip_channels=optHyps['skip_channels'],
+                   post_channels=optHyps['post_channels'])
 
     data_obj = dataLoader(data_pars, features, n_steps_past=16,
                           n_steps_future=6,

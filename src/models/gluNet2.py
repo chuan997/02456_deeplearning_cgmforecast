@@ -7,6 +7,13 @@ from torch import add, nn, tensor
 
 class Chomp1d(nn.Module):
     def __init__(self, length):
+
+        """
+        :param length: remove the last few units with a length
+
+        :return: (batch_size, channels, l-length)
+        """
+
         super(Chomp1d, self).__init__()
         self.length = length
 
@@ -17,9 +24,8 @@ class CausalConv(nn.Module):
     
     def __init__(self, 
                  num_inputs=4, 
-                 h1=32, 
-                 h2=64,
-                 kernel_size=2):
+                 causal_channels1=32, 
+                 causal_channels2=64):
         
         """
         :param num_input: num of initial input channels (4)
@@ -31,7 +37,7 @@ class CausalConv(nn.Module):
         """
     
         super(CausalConv, self).__init__()
-        self.hidden_units = [h1, h1, h2, h2]
+        self.hidden_units = [causal_channels1, causal_channels1, causal_channels2, causal_channels2]
 
         #padding=（kernel_size-1）*dilation
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
@@ -53,11 +59,10 @@ class CausalConv(nn.Module):
         self.relu = nn.ReLU()
         # chomp1d padding
         self.chomp = Chomp1d(length=1)
-        # self.dropout = nn.Dropout(0.2)
 
-        self.net = nn.Sequential(self.conv1, self.relu, self.chomp,
-                                 self.conv2, self.relu, self.chomp,
-                                 self.conv3, self.relu, self.chomp,
+        self.net = nn.Sequential(self.conv1, self.relu, self.chomp, 
+                                 self.conv2, self.relu, self.chomp, 
+                                 self.conv3, self.relu, self.chomp, 
                                  self.conv4, self.chomp)
         
     def forward(self, x):
@@ -71,8 +76,7 @@ class DilatedConv(nn.Module):
 
     def __init__(self, 
                  num_inputs=64, 
-                 dilation=1,
-                 dropout=0.2):
+                 dilation=1):
                 # h1=32, 
                 # h2=16):
         
@@ -110,7 +114,7 @@ class ResBlock(nn.Module):
         self.num_inputs = num_inputs
         self.skip_channels = skip_channels
 
-        self.dilated = DilatedConv(dilation=dilation)
+        self.dilated = DilatedConv(num_inputs=num_inputs, dilation=dilation)
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         
@@ -143,7 +147,7 @@ class ResBlock(nn.Module):
 
 class PostProcess(nn.Module):
 
-    def __init__(self, num_inputs=32, h=16):
+    def __init__(self, num_inputs=32, post_channels=16):
         
         """
         :param num_inputs: channels of skip
@@ -154,7 +158,7 @@ class PostProcess(nn.Module):
         super(PostProcess, self).__init__()
 
         self.num_inputs = num_inputs
-        self.hidden_units = h
+        self.hidden_units = post_channels
 
         self.relu = nn.ReLU()
         self.conv1 = nn.Conv1d(in_channels=self.num_inputs, 
@@ -181,23 +185,27 @@ class GluNet(nn.Module):
 
     def __init__(self, 
                  n_steps_past=16, 
-                 num_inputs=16,
-                 dilation=[1,2,4,8]): #[32,32,32,64,64]):
+                 num_inputs=4,
+                 dilation=[1,2,4,8], 
+                 causal_channels1 = 32,
+                 causal_channels2 = 64,
+                 skip_channels = 32,
+                 post_channels = 16): #[32,32,32,64,64]):
             
         super(GluNet, self).__init__()
 
         self.num_inputs = num_inputs
         self.input_width = n_steps_past # n steps past
         
-        self.causal = CausalConv()
+        self.causal = CausalConv(causal_channels1=causal_channels1, causal_channels2=causal_channels2)
 
-        self.reslayers = nn.ModuleList([ResBlock(dilation=i) for i in dilation])
+        self.reslayers = nn.ModuleList([ResBlock(num_inputs=causal_channels2, skip_channels=skip_channels, dilation=i) for i in dilation])
         
-        self.dilated = DilatedConv()
+        #self.dilated = DilatedConv(num_inputs=causal_channels2)
 
-        self.resblock = ResBlock()
+        #self.resblock = ResBlock(num_inputs=causal_channels2, skip_channels=skip_channels)
         
-        self.postprocess = PostProcess()
+        self.postprocess = PostProcess(num_inputs=skip_channels, post_channels=post_channels)
 
 
     def forward(self, x):
