@@ -5,6 +5,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import add, nn, tensor
 
+class Chomp1d(nn.Module):
+    def __init__(self, length):
+        super(Chomp1d, self).__init__()
+        self.length = length
+
+    def forward(self, x):
+        return x[:, :, :-self.length].contiguous()
 
 class CausalConv(nn.Module):
     
@@ -29,29 +36,29 @@ class CausalConv(nn.Module):
         #padding=（kernel_size-1）*dilation
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
                                out_channels=self.hidden_units[0], 
-                               kernel_size=2, dilation=1)
+                               kernel_size=2, padding=1, dilation=1)
         
         self.conv2 = nn.Conv1d(in_channels=self.hidden_units[0], 
                                out_channels=self.hidden_units[1], 
-                               kernel_size=2, dilation=1)
+                               kernel_size=2, padding=1, dilation=1)
         
         self.conv3 = nn.Conv1d(in_channels=self.hidden_units[1], 
                                out_channels=self.hidden_units[2], 
-                               kernel_size=2, dilation=1)
+                               kernel_size=2, padding=1, dilation=1)
         
         self.conv4 = nn.Conv1d(in_channels=self.hidden_units[2], 
                                out_channels=self.hidden_units[3], 
-                               kernel_size=2, dilation=1)
+                               kernel_size=2, padding=1, dilation=1)
         
         self.relu = nn.ReLU()
+        # chomp1d padding
+        self.chomp = Chomp1d(length=1)
+        # self.dropout = nn.Dropout(0.2)
 
-        self.net = nn.Sequential(self.conv1, 
-                                 self.relu, 
-                                 self.conv2, 
-                                 self.relu, 
-                                 self.conv3,
-                                 self.relu, 
-                                 self.conv4)
+        self.net = nn.Sequential(self.conv1, self.relu, self.chomp,
+                                 self.conv2, self.relu, self.chomp,
+                                 self.conv3, self.relu, self.chomp,
+                                 self.conv4, self.chomp)
         
     def forward(self, x):
 
@@ -84,7 +91,7 @@ class DilatedConv(nn.Module):
         #o = [i + 2*p - k - (k-1)*(d-1)]/s + 1
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
                                out_channels=num_inputs, 
-                               kernel_size=3,
+                               kernel_size=2,
                                padding=0, 
                                dilation=dilation)
 
@@ -103,7 +110,7 @@ class ResBlock(nn.Module):
         self.num_inputs = num_inputs
         self.skip_channels = skip_channels
 
-        self.dilated = DilatedConv()
+        self.dilated = DilatedConv(dilation=dilation)
         self.tanh = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         
@@ -196,13 +203,18 @@ class GluNet(nn.Module):
     def forward(self, x):
         
         residual = self.causal(x)
+        #print(residual.shape)
         skips = []
 
         for layer in self.reslayers:
             residual,skip = layer(residual)
             skips.append(skip)
+        #    print(layer)
+        #    print('residual', residual.shape)
+        #    print('skip', residual.shape)
 
         output = sum([s[:,:,-residual.size(2):] for s in skips])
+        #print(output.shape)
         
         output = self.postprocess(output)
 
