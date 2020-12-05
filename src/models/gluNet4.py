@@ -96,13 +96,17 @@ class DilatedConv(nn.Module):
         self.conv1 = nn.Conv1d(in_channels=num_inputs, 
                                out_channels=num_inputs, 
                                kernel_size=2,
-                               # padding=0, 
+                               padding=dilation, 
                                dilation=dilation)
+        
+        self.chomp1d = Chomp1d(length=dilation)
+        
+        self.net = nn.Sequential(self.conv1, self.chomp1d)
 
     def forward(self, x):
 
-        output = self.conv1(x)
-
+        output = self.net(x)
+        
         return output
 
 
@@ -121,24 +125,26 @@ class ResBlock(nn.Module):
         # residual
         self.conv1 = nn.Conv1d(in_channels=self.num_inputs, 
                                out_channels=self.num_inputs, 
-                               kernel_size=1, dilation=1) ## original:1
+                               kernel_size=1, dilation=1)
         
         # skip
         self.conv2 = nn.Conv1d(in_channels=self.num_inputs, 
                                out_channels=self.skip_channels, 
-                               kernel_size=1, dilation=1) ## original: 1
+                               kernel_size=1, dilation=1)
         
     def forward(self, x):
-        # print('......x',x.shape)
+            
         output = self.dilated(x)
-        # print('......dilate',output.shape)
+
         filters = self.tanh(output)
         gates = self.sigmoid(output)
         output = filters * gates
         
         residual = self.conv1(output)
-        # print('.......residual',residual.shape)
         skip = self.conv2(output)
+        #print(x.shape)
+        #print(residual.shape)
+        #print(skip.shape)
 
         x = residual + x[:, :, -residual.size(2):]
         
@@ -187,7 +193,7 @@ class GluNet(nn.Module):
     def __init__(self, 
                  n_steps_past=16, 
                  num_inputs=4,
-                 dilation=[1,1,2,4,8], 
+                 dilation=[1,2,4,8], 
                  causal_channels1 = 32,
                  causal_channels2 = 64,
                  skip_channels = 32,
@@ -196,7 +202,7 @@ class GluNet(nn.Module):
         super(GluNet, self).__init__()
 
         self.num_inputs = num_inputs
-        # self.input_width = n_steps_past # n steps past
+        self.input_width = n_steps_past # n steps past
         
         self.causal = CausalConv(causal_channels1=causal_channels1, causal_channels2=causal_channels2)
 
@@ -207,32 +213,21 @@ class GluNet(nn.Module):
         #self.resblock = ResBlock(num_inputs=causal_channels2, skip_channels=skip_channels)
         
         self.postprocess = PostProcess(num_inputs=skip_channels, post_channels=post_channels)
-        
-        self.receptive_field = sum(dilation) + 1
-        
-        self.input_width = n_steps_past
+
 
     def forward(self, x):
         
         residual = self.causal(x)
-        # print('glu2...')
         #print(residual.shape)
         skips = []
-        #print('residual start:', residual.shape)
-        
-        #zero padding
-        current_width = residual.shape[2]
-        pad = max(self.receptive_field - current_width, 0)
-        residual = nn.functional.pad(residual, [pad, 0], "constant", 0)
-        #print('residual pad:', residual.shape)
-        
+
         for layer in self.reslayers:
             residual,skip = layer(residual)
             skips.append(skip)
-            # print('layer',layer)
-            # print('residual layer', residual.shape)
+        #    print(layer)
+        #    print('residual', residual.shape)
         #    print('skip', residual.shape)
-        #print('skip shape:', skip.shape)
+
         output = sum([s[:,:,-residual.size(2):] for s in skips])
         #print(output.shape)
         

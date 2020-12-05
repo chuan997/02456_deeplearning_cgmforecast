@@ -14,7 +14,9 @@ from src.data import DataframeDataLoader
 from src.evaluation import evaluateModel
 from src.load_data import dataLoader
 from src.models.hediaNetExample import DilatedNet
-from src.models.gluNet2 import GluNet
+#from src.models.gluNet2 import GluNet
+#from src.models.gluNet3 import GluNet
+from src.models.gluNet4 import GluNet
 from src.parameter_sets.par import *
 from src.tools import train_cgm
 
@@ -74,19 +76,25 @@ data_obj = dataLoader(data_pars, features, n_steps_past=16,
 # EXTRACT DATA AND TEST THE MODEL
 # ---------------------------------------------------------------------
 config = {
-    "batch_size": 2,
+    "batch_size": 4,
     "lr": 0.001,
-    "h1": 32,
-    "h2": 64,
     "wd": 0.05,
+    "causal_channels1": 32,
+    "causal_channels2": 64,
+    "skip_channels": 8,
+    "post_channels": 16
 }
 
 
 #model = DilatedNet(h1=config["h1"],
 #                   h2=config["h2"])
 
-model = GluNet()
+#model = GluNet()
 
+model = GluNet(causal_channels1=config["causal_channels1"],
+               causal_channels2=config["causal_channels2"],
+               skip_channels=config["skip_channels"],
+               post_channels=config["post_channels"])
 
 # Load training data
 trainset, valset = data_obj.load_train_and_val()

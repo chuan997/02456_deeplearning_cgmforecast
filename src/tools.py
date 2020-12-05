@@ -14,7 +14,10 @@ from torch.autograd import Variable
 from src.data import DataframeDataLoader
 from src.models.hediaNetExample import DilatedNet
 
-from src.models.gluNet2 import GluNet
+#from src.models.gluNet2 import GluNet
+#from src.models.gluNet3 import GluNet
+from src.models.gluNet4 import GluNet
+
 
 import time
 
@@ -61,6 +64,7 @@ def train_cgm(config: dict, data_obj=None, max_epochs=10, n_epochs_stop=5, grace
     device = "cpu"
     if torch.cuda.is_available():
         device = "cuda:0"
+        #device = "gpu"
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
     model.to(device)
